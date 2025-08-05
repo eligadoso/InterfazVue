@@ -1,14 +1,14 @@
 <template>
-  <IndexComponent />
+  <BeekeeperDashboard />
 </template>
 
 <script>
-import IndexComponent from './components/index.vue'
+import BeekeeperDashboard from './components/beekeeper-dashboard.vue'
 
 export default {
   name: 'App',
   components: {
-    IndexComponent
+    BeekeeperDashboard
   }
 }
 </script>

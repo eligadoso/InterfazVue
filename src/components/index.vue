@@ -356,6 +356,7 @@ const alerts = ref([
 ]);
 </script>
 
+
 <style scoped>
 /* No se necesita CSS adicional aquí ya que Tailwind CSS maneja la mayoría del estilo. */
 /* Puedes añadir estilos específicos si es necesario. */
