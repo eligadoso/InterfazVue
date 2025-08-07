@@ -266,10 +266,8 @@
                 </button>
               </div>
 
-              <div v-if="showChart" class="w-full h-[400px] flex items-center justify-center bg-white rounded-md shadow-sm">
-                <p class="text-gray-500 text-center py-4">
-                  (Aquí se renderizaría un gráfico real con una biblioteca de gráficos para el día seleccionado)
-                </p>
+              <div v-if="showChart" class="w-full h-[400px] bg-white rounded-md shadow-sm p-4">
+                <canvas ref="chartCanvas" class="w-full h-full"></canvas>
               </div>
               <div v-else class="border border-gray-200 rounded-md p-4 bg-white shadow-sm">
                 <h4 class="text-lg font-semibold text-gray-800 mb-3">Registros Detallados del Día</h4>
@@ -327,9 +325,9 @@
             <!-- Day view (drilled down from month): Chart or List of all records for the day -->
             <div class="w-full">
               <div class="flex items-center justify-end space-x-2 mb-4">
-                <label for="chart-toggle" class="text-sm font-medium text-gray-700">Mostrar Gráfico</label>
+                <label for="chart-toggle-month" class="text-sm font-medium text-gray-700">Mostrar Gráfico</label>
                 <button
-                  id="chart-toggle"
+                  id="chart-toggle-month"
                   role="switch"
                   :aria-checked="showChart"
                   @click="showChart = !showChart"
@@ -347,10 +345,8 @@
                 </button>
               </div>
 
-              <div v-if="showChart" class="w-full h-[400px] flex items-center justify-center bg-white rounded-md shadow-sm">
-                <p class="text-gray-500 text-center py-4">
-                  (Aquí se renderizaría un gráfico real con una biblioteca de gráficos para el día seleccionado)
-                </p>
+              <div v-if="showChart" class="w-full h-[400px] bg-white rounded-md shadow-sm p-4">
+                <canvas ref="chartCanvas" class="w-full h-full"></canvas>
               </div>
               <div v-else class="border border-gray-200 rounded-md p-4 bg-white shadow-sm">
                 <h4 class="text-lg font-semibold text-gray-800 mb-3">Registros Detallados del Día</h4>
@@ -408,9 +404,9 @@
             <!-- Day view (drilled down from week): Chart or List of all records for the day -->
             <div class="w-full">
               <div class="flex items-center justify-end space-x-2 mb-4">
-                <label for="chart-toggle" class="text-sm font-medium text-gray-700">Mostrar Gráfico</label>
+                <label for="chart-toggle-week" class="text-sm font-medium text-gray-700">Mostrar Gráfico</label>
                 <button
-                  id="chart-toggle"
+                  id="chart-toggle-week"
                   role="switch"
                   :aria-checked="showChart"
                   @click="showChart = !showChart"
@@ -428,10 +424,8 @@
                 </button>
               </div>
 
-              <div v-if="showChart" class="w-full h-[400px] flex items-center justify-center bg-white rounded-md shadow-sm">
-                <p class="text-gray-500 text-center py-4">
-                  (Aquí se renderizaría un gráfico real con una biblioteca de gráficos para el día seleccionado)
-                </p>
+              <div v-if="showChart" class="w-full h-[400px] bg-white rounded-md shadow-sm p-4">
+                <canvas ref="chartCanvas" class="w-full h-full"></canvas>
               </div>
               <div v-else class="border border-gray-200 rounded-md p-4 bg-white shadow-sm">
                 <h4 class="text-lg font-semibold text-gray-800 mb-3">Registros Detallados del Día</h4>
@@ -461,9 +455,9 @@
             <!-- Day view: Chart or List of all records for the day -->
             <div class="w-full">
               <div class="flex items-center justify-end space-x-2 mb-4">
-                <label for="chart-toggle" class="text-sm font-medium text-gray-700">Mostrar Gráfico</label>
+                <label for="chart-toggle-day" class="text-sm font-medium text-gray-700">Mostrar Gráfico</label>
                 <button
-                  id="chart-toggle"
+                  id="chart-toggle-day"
                   role="switch"
                   :aria-checked="showChart"
                   @click="showChart = !showChart"
@@ -481,10 +475,8 @@
                 </button>
               </div>
 
-              <div v-if="showChart" class="w-full h-[400px] flex items-center justify-center bg-white rounded-md shadow-sm">
-                <p class="text-gray-500 text-center py-4">
-                  (Aquí se renderizaría un gráfico real con una biblioteca de gráficos para el día seleccionado)
-                </p>
+              <div v-if="showChart" class="w-full h-[400px] bg-white rounded-md shadow-sm p-4">
+                <canvas ref="chartCanvas" class="w-full h-full"></canvas>
               </div>
               <div v-else class="border border-gray-200 rounded-md p-4 bg-white shadow-sm">
                 <h4 class="text-lg font-semibold text-gray-800 mb-3">Registros Detallados del Día</h4>
@@ -524,8 +516,13 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted, computed } from 'vue';
+import { ref, onMounted, onUnmounted, computed, watch, nextTick } from 'vue';
 import { ThermometerIcon, CloudRainIcon, ScaleIcon, ActivityIcon, AlertTriangleIcon, InfoIcon, UserIcon, LogOutIcon } from 'lucide-vue-next';
+import Chart from 'chart.js/auto';
+
+// Nuevas referencias para el gráfico
+const chartCanvas = ref(null);
+let chartInstance = null;
 
 // --- Data Simulation Functions ---
 
@@ -682,6 +679,201 @@ const periods = [
 // --- Memoized Data ---
 const historicalData = computed(() => generateHistoricalData())
 
+// Función para crear/actualizar el gráfico
+const createChart = async () => {
+  await nextTick();
+  
+  if (!chartCanvas.value) return;
+  
+  // Destruir gráfico existente si existe
+  if (chartInstance) {
+    chartInstance.destroy();
+  }
+  
+  const ctx = chartCanvas.value.getContext('2d');
+  
+  // Obtener datos según el período y vista actual
+  let chartData = getChartData();
+  
+  chartInstance = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: chartData.labels,
+      datasets: [
+        {
+          label: 'Temperatura (°C)',
+          data: chartData.temperature,
+          borderColor: 'rgb(249, 115, 22)',
+          backgroundColor: 'rgba(249, 115, 22, 0.1)',
+          tension: 0.4,
+          yAxisID: 'y'
+        },
+        {
+          label: 'Humedad (%)',
+          data: chartData.humidity,
+          borderColor: 'rgb(59, 130, 246)',
+          backgroundColor: 'rgba(59, 130, 246, 0.1)',
+          tension: 0.4,
+          yAxisID: 'y1'
+        },
+        {
+          label: 'Peso (kg)',
+          data: chartData.weight,
+          borderColor: 'rgb(34, 197, 94)',
+          backgroundColor: 'rgba(34, 197, 94, 0.1)',
+          tension: 0.4,
+          yAxisID: 'y2'
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: {
+        mode: 'index',
+        intersect: false,
+      },
+      plugins: {
+        title: {
+          display: true,
+          text: chartData.title
+        },
+        legend: {
+          position: 'top',
+        },
+        tooltip: {
+          callbacks: {
+            label: function(context) {
+              let label = context.dataset.label || '';
+              if (label) {
+                label += ': ';
+              }
+              label += context.parsed.y;
+              if (context.dataset.label === 'Temperatura (°C)') {
+                label += '°C';
+              } else if (context.dataset.label === 'Humedad (%)') {
+                label += '%';
+              } else if (context.dataset.label === 'Peso (kg)') {
+                label += ' kg';
+              }
+              return label;
+            }
+          }
+        }
+      },
+      scales: {
+        x: {
+          display: true,
+          title: {
+            display: true,
+            text: 'Tiempo'
+          }
+        },
+        y: {
+          type: 'linear',
+          display: true,
+          position: 'left',
+          title: {
+            display: true,
+            text: 'Temperatura (°C)'
+          },
+          grid: {
+            drawOnChartArea: false,
+          },
+        },
+        y1: {
+          type: 'linear',
+          display: true,
+          position: 'right',
+          title: {
+            display: true,
+            text: 'Humedad (%)'
+          },
+          grid: {
+            drawOnChartArea: false,
+          },
+        },
+        y2: {
+          type: 'linear',
+          display: false,
+          position: 'right',
+        }
+      },
+    },
+  });
+};
+
+// Función para obtener datos del gráfico según la vista actual
+const getChartData = () => {
+  let data = [];
+  let title = '';
+  
+  if (selectedPeriod.value === 'day') {
+    data = historicalData.value.day.records;
+    title = 'Datos del Día - Registros por Hora';
+  } else if (selectedPeriod.value === 'week' && selectedDayIndex.value !== null) {
+    data = historicalData.value.week.dailyData[selectedDayIndex.value]?.records || [];
+    title = `Datos del ${historicalData.value.week.dailyData[selectedDayIndex.value]?.label} - Registros por Hora`;
+  } else if (selectedPeriod.value === 'month' && selectedDayIndex.value !== null) {
+    data = historicalData.value.month.dailyData[selectedDayIndex.value]?.records || [];
+    title = `Datos del ${historicalData.value.month.dailyData[selectedDayIndex.value]?.label} - Registros por Hora`;
+  } else if (selectedPeriod.value === 'year' && selectedMonthIndex.value !== null && selectedDayIndex.value !== null) {
+    data = historicalData.value.year.monthlyData[selectedMonthIndex.value]?.dailyData[selectedDayIndex.value]?.records || [];
+    title = `Datos del ${historicalData.value.year.monthlyData[selectedMonthIndex.value]?.dailyData[selectedDayIndex.value]?.label} - Registros por Hora`;
+  } else {
+    // Vista de resumen (semana, mes, año sin drill-down)
+    if (selectedPeriod.value === 'week') {
+      data = historicalData.value.week.dailyData;
+      title = 'Datos de la Semana - Promedios por Día';
+    } else if (selectedPeriod.value === 'month') {
+      data = historicalData.value.month.dailyData;
+      title = 'Datos del Mes - Promedios por Día';
+    } else if (selectedPeriod.value === 'year') {
+      data = historicalData.value.year.monthlyData;
+      title = 'Datos del Año - Promedios por Mes';
+    }
+  }
+  
+  const labels = data.map(item => {
+    if (item.time) {
+      // Para registros por hora
+      return item.time.split(' ')[1] || item.time;
+    } else {
+      // Para resúmenes diarios/mensuales
+      return item.label;
+    }
+  });
+  
+  const temperature = data.map(item => 
+    item.temperature || item.averageTemperature
+  );
+  
+  const humidity = data.map(item => 
+    item.humidity || item.averageHumidity
+  );
+  
+  const weight = data.map(item => 
+    item.weight || item.averageWeight
+  );
+  
+  return {
+    labels,
+    temperature,
+    humidity,
+    weight,
+    title
+  };
+};
+
+// Watchers para actualizar el gráfico cuando cambian los datos
+watch([showChart, selectedPeriod, selectedMonthIndex, selectedDayIndex], () => {
+  if (showChart.value) {
+    nextTick(() => {
+      createChart();
+    });
+  }
+});
+
 // --- Effects ---
 let realTimeInterval;
 
@@ -701,7 +893,10 @@ onUnmounted(() => {
   if (realTimeInterval) {
     clearInterval(realTimeInterval)
   }
-})
+  if (chartInstance) {
+    chartInstance.destroy();
+  }
+});
 
 // --- Handlers ---
 const selectPeriod = (period) => {
